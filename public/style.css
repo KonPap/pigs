@@ -1,0 +1,525 @@
+/* ── Reset & Base ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #1a1a2e;
+  font-family: 'Segoe UI', sans-serif;
+  color: #f0f0f0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* ── Overlays ─────────────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 20, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+/* ── Lobby ────────────────────────────────────────────────────── */
+.lobby-box {
+  background: #16213e;
+  border: 2px solid #0f3460;
+  border-radius: 20px;
+  padding: 40px 48px;
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+.lobby-box h1 { font-size: 2.8rem; margin-bottom: 6px; }
+.subtitle { color: #aaa; font-size: 0.9rem; margin-bottom: 28px; }
+
+.lobby-form input, .join-row input {
+  width: 100%;
+  padding: 12px 16px;
+  background: #0f3460;
+  border: 1px solid #1a5276;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 1rem;
+  outline: none;
+  margin-bottom: 16px;
+}
+.lobby-form input:focus, .join-row input:focus { border-color: #e94560; }
+
+.lobby-buttons { display: flex; flex-direction: column; gap: 10px; }
+.divider { color: #555; font-size: 0.85rem; }
+.join-row { display: flex; gap: 8px; }
+.join-row input { margin-bottom: 0; flex: 1; }
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 22px;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+#btnCreate { background: #e94560; color: #fff; width: 100%; }
+#btnCreate:hover { background: #c73652; }
+#btnJoin { background: #0f3460; color: #fff; white-space: nowrap; }
+#btnJoin:hover { background: #1a5276; }
+
+.room-code-display {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  margin-bottom: 18px;
+  color: #e94560;
+}
+#btnCopyCode {
+  background: none; color: #aaa; font-size: 0.85rem;
+  padding: 2px 8px; margin-left: 8px;
+  border: 1px solid #444; border-radius: 6px;
+}
+#btnCopyCode:hover { color: #fff; border-color: #fff; }
+
+.waiting-label { color: #aaa; font-size: 0.9rem; margin-bottom: 8px; }
+#playerList { list-style: none; margin-bottom: 20px; }
+#playerList li { padding: 6px 0; border-bottom: 1px solid #1a3055; font-size: 1rem; }
+#playerList li:last-child { border-bottom: none; }
+#playerList li.host-li::after { content: ' 👑'; }
+
+#btnStart { background: #27ae60; color: #fff; width: 100%; margin-bottom: 10px; }
+#btnStart:hover { background: #1e8449; }
+.waiting-msg { color: #888; font-size: 0.85rem; margin-top: 10px; }
+.error-msg { color: #e74c3c; font-size: 0.85rem; min-height: 20px; margin-top: 8px; }
+
+/* ── Game Over ────────────────────────────────────────────────── */
+.gameover-box {
+  background: #16213e;
+  border: 2px solid #0f3460;
+  border-radius: 20px;
+  padding: 40px 48px;
+  max-width: 460px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+}
+.gameover-box h2 { font-size: 1.8rem; margin-bottom: 24px; color: #f39c12; }
+#scoreTable { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+#scoreTable th, #scoreTable td { padding: 10px; border-bottom: 1px solid #1a3055; text-align: center; }
+#scoreTable th { color: #aaa; font-size: 0.85rem; }
+.winner-row td { color: #f1c40f; font-weight: 700; }
+#btnPlayAgain { background: #27ae60; color: #fff; width: 100%; margin-bottom: 10px; }
+#btnPlayAgain:hover { background: #1e8449; }
+
+/* ── Game Layout ──────────────────────────────────────────────── */
+#game {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#tableWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* ── The Table ────────────────────────────────────────────────── */
+#table {
+  position: relative;
+  width: 640px;
+  height: 580px;
+  /* Green felt blob */
+  background: radial-gradient(ellipse at 40% 35%, #2ecc71 0%, #27ae60 30%, #1e8449 65%, #145a32 100%);
+  border-radius: 50% / 44%;
+  /* Wooden border */
+  border: 22px solid #7d4e1a;
+  box-shadow:
+    inset 0 0 60px rgba(0,0,0,0.35),
+    0 0 0 4px #5d3710,
+    0 0 0 6px #9b6d2a,
+    0 8px 40px rgba(0,0,0,0.8);
+}
+
+/* ── Sequences — centered, INSIDE the draw circle ────────────── */
+#sequences {
+  position: absolute;
+  /* Match the JS coordinate origin (cx=320, cy=290) used by draw circle & player zones */
+  left: 320px;
+  top: 290px;
+  transform: translate(-50%, -50%);
+  display: grid;
+  grid-template-columns: repeat(2, 58px);
+  gap: 10px;
+  z-index: 10;
+}
+
+.seq-pile {
+  width: 58px;
+  height: 82px;
+  background: rgba(0,0,0,0.3);
+  border: 2px dashed rgba(255,255,255,0.2);
+  border-radius: 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+.seq-pile.flash-play {
+  border-color: #2ecc71;
+  box-shadow: 0 0 18px #2ecc71;
+  transform: scale(1.08);
+}
+.seq-pile.valid-target {
+  border-color: #f1c40f;
+  border-style: solid;
+  box-shadow: 0 0 16px rgba(241,196,15,0.8);
+  transform: scale(1.08);
+  cursor: pointer;
+}
+.seq-pile.valid-target:hover {
+  box-shadow: 0 0 26px rgba(241,196,15,1);
+  transform: scale(1.12);
+}
+
+.seq-empty {
+  font-size: 1rem;
+  font-weight: 700;
+  opacity: 0.4;
+  color: #fff;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.pile-cards {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Small card shown on sequence pile */
+.pile-card {
+  width: 50px;
+  height: 68px;
+  background: #fff;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-weight: 800;
+  font-size: 1rem;
+}
+.pile-card.red { color: #c0392b; }
+.pile-card.black { color: #1a1a1a; }
+
+/* ── Draw Circle (face-down ring) ─────────────────────────────── */
+.draw-card {
+  position: absolute;
+  width: 42px;
+  height: 60px;
+  background: linear-gradient(135deg, #c0392b 0%, #922b21 50%, #c0392b 100%);
+  border-radius: 5px;
+  border: 2px solid rgba(255,255,255,0.12);
+  box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+.draw-card::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 3px;
+}
+.draw-card-active {
+  cursor: pointer;
+  border-color: rgba(241,196,15,0.5);
+  box-shadow: 0 0 10px rgba(241,196,15,0.5), 2px 2px 6px rgba(0,0,0,0.5);
+  pointer-events: all;
+}
+.draw-card-active:hover {
+  box-shadow: 0 0 18px rgba(241,196,15,0.9), 2px 2px 10px rgba(0,0,0,0.6);
+  transform: scale(1.15) !important;
+  z-index: 20;
+}
+
+/* ── Player Zones ─────────────────────────────────────────────── */
+.player-zone {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transform: translate(-50%, -50%);
+  cursor: default;
+  z-index: 15;
+}
+
+.player-name {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: center;
+  background: rgba(0,0,0,0.65);
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  max-width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.player-name.active-name {
+  background: rgba(241,196,15,0.85);
+  color: #1a1a1a;
+}
+.player-name.self-name {
+  border: 1px solid rgba(255,255,255,0.4);
+}
+
+/* Player pile display (stacked cards) */
+.player-pile {
+  position: relative;
+  height: 60px;
+  width: 50px;
+}
+
+.pile-card-back {
+  position: absolute;
+  width: 46px;
+  height: 64px;
+  background: linear-gradient(135deg, #c0392b, #922b21);
+  border-radius: 5px;
+  border: 1.5px solid rgba(255,255,255,0.15);
+  box-shadow: 1px 1px 4px rgba(0,0,0,0.5);
+}
+
+.pile-top-card {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  left: 0;
+}
+
+.pile-empty-label {
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.4);
+  text-align: center;
+  margin-top: 4px;
+}
+
+.player-count {
+  font-size: 0.62rem;
+  color: rgba(255,255,255,0.75);
+  background: rgba(0,0,0,0.5);
+  border-radius: 8px;
+  padding: 1px 5px;
+}
+
+/* Valid dump target: glow + pointer */
+.player-zone.valid-dump {
+  cursor: pointer;
+}
+.player-zone.valid-dump .player-name {
+  background: rgba(241,196,15,0.3);
+  border: 1px solid #f1c40f;
+  color: #f1c40f;
+}
+.player-zone.valid-dump:hover .player-name {
+  background: rgba(241,196,15,0.6);
+}
+.player-zone.valid-dump::after {
+  content: 'Dump here';
+  display: block;
+  font-size: 0.58rem;
+  color: #f1c40f;
+  background: rgba(0,0,0,0.7);
+  border-radius: 6px;
+  padding: 1px 5px;
+}
+
+/* ── Playing Cards ────────────────────────────────────────────── */
+.card {
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 3px 4px;
+  position: relative;
+  box-shadow: 2px 3px 8px rgba(0,0,0,0.4);
+  user-select: none;
+}
+.card.card-lg {
+  width: 62px;
+  height: 88px;
+}
+.card.card-sm {
+  width: 46px;
+  height: 64px;
+}
+.card.red .card-rank, .card.red .card-suit-top, .card.red .card-center-suit { color: #c0392b; }
+.card.black .card-rank, .card.black .card-suit-top, .card.black .card-center-suit { color: #1a1a1a; }
+
+.card-rank  { font-size: 0.85rem; font-weight: 800; line-height: 1; }
+.card-suit-top { font-size: 0.7rem; line-height: 1; }
+.card-center-suit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.4rem;
+}
+.card.card-sm .card-center-suit { font-size: 1rem; }
+
+/* ── Status Bar ───────────────────────────────────────────────── */
+#statusBar {
+  width: 100%;
+  padding: 8px 20px 10px;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 100px;
+  max-height: 110px;
+}
+
+/* Left: drawn card area */
+#drawnSection {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 180px;
+}
+#drawnInfo {
+  font-size: 0.78rem;
+  color: #aaa;
+  max-width: 90px;
+  line-height: 1.4;
+}
+#drawnInfo.my-turn { color: #f1c40f; font-weight: 600; }
+#drawnInfo.no-play { color: #e74c3c; animation: pulse 0.8s ease-in-out 2; }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+/* Center: turn + circle count */
+#turnSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+#turnInfo {
+  font-size: 1rem;
+  font-weight: 700;
+}
+#circleCount {
+  font-size: 0.75rem;
+  color: #aaa;
+}
+
+/* Right: all piles */
+#allPiles {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-content: flex-end;
+}
+.pile-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.pile-display-label {
+  font-size: 0.7rem;
+  color: #aaa;
+  text-align: center;
+  white-space: nowrap;
+}
+.pile-display-label.mine {
+  color: #f1c40f;
+  font-weight: 700;
+}
+.pile-display-stack {
+  position: relative;
+  width: 50px;
+  height: 72px;
+}
+
+/* ── Phase 2 Hand ────────────────────────────────────────────── */
+#phase2HandSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 160px;
+  max-width: 45%;
+}
+.hand-label {
+  font-size: 0.72rem;
+  color: #aaa;
+  font-weight: 600;
+}
+#phase2Cards {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  overflow-y: auto;
+  max-height: 80px;
+}
+.card.playable {
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.card.playable:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 10px 24px rgba(241,196,15,0.7);
+  border-color: #f1c40f;
+}
+
+/* Phase 2 discard pile in center */
+#phase2DiscardWrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+}
+#phase2DiscardLabel {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.5);
+  background: rgba(0,0,0,0.4);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-height: 700px) {
+  #table { width: 520px; height: 470px; }
+  #statusBar { min-height: 80px; }
+}
+@media (max-width: 680px) {
+  #table { width: 360px; height: 330px; border-width: 14px; }
+  .draw-card { width: 30px; height: 44px; }
+  .seq-pile { width: 46px; height: 66px; }
+}

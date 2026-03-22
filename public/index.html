@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pig – Card Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- LOBBY OVERLAY -->
+  <div id="lobby" class="overlay">
+    <div class="lobby-box">
+      <h1>🐷 Pig</h1>
+      <p class="subtitle">Draw cards and build sequences — empty your pile to win!</p>
+
+      <div class="lobby-form" id="nameForm">
+        <input id="playerName" type="text" placeholder="Your name" maxlength="16" autocomplete="off">
+        <div class="lobby-buttons">
+          <button id="btnCreate">Create Room</button>
+          <div class="divider">or</div>
+          <div class="join-row">
+            <input id="roomCodeInput" type="text" placeholder="Room code" maxlength="4" autocomplete="off">
+            <button id="btnJoin">Join</button>
+          </div>
+        </div>
+        <div id="lobbyError" class="error-msg"></div>
+      </div>
+
+      <div class="lobby-waiting" id="waitingRoom" style="display:none">
+        <div class="room-code-display">
+          Room: <span id="displayRoomId"></span>
+          <button id="btnCopyCode" title="Copy code">⎘ Copy</button>
+        </div>
+        <p class="waiting-label">Players in room:</p>
+        <ul id="playerList"></ul>
+        <button id="btnStart" style="display:none">Start Game</button>
+        <p id="waitingMsg" class="waiting-msg">Waiting for host to start…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME OVER OVERLAY -->
+  <div id="gameOverScreen" class="overlay" style="display:none">
+    <div class="gameover-box">
+      <h2 id="gameOverTitle"></h2>
+      <table id="scoreTable">
+        <thead><tr><th>Place</th><th>Player</th><th>Cards</th><th>Score</th></tr></thead>
+        <tbody id="scoreRows"></tbody>
+      </table>
+      <button id="btnPlayAgain" style="display:none">Play Again</button>
+      <p id="playAgainMsg" style="display:none" class="waiting-msg">Waiting for host to restart…</p>
+    </div>
+  </div>
+
+  <!-- GAME TABLE -->
+  <div id="game" style="display:none">
+    <div id="tableWrap">
+      <div id="table">
+        <!-- Center sequence piles (inside the draw circle) -->
+        <div id="sequences">
+          <div class="seq-pile" id="seq-0">
+            <div class="seq-empty">6</div>
+            <div class="pile-cards"></div>
+          </div>
+          <div class="seq-pile" id="seq-1">
+            <div class="seq-empty">6</div>
+            <div class="pile-cards"></div>
+          </div>
+          <div class="seq-pile" id="seq-2">
+            <div class="seq-empty">6</div>
+            <div class="pile-cards"></div>
+          </div>
+          <div class="seq-pile" id="seq-3">
+            <div class="seq-empty">6</div>
+            <div class="pile-cards"></div>
+          </div>
+        </div>
+
+        <!-- Draw circle (rendered by JS) -->
+        <div id="drawCircle"></div>
+
+        <!-- Player zones around the table (rendered by JS) -->
+        <div id="playerZones"></div>
+      </div>
+    </div>
+
+    <!-- Bottom status bar -->
+    <div id="statusBar">
+      <!-- Left: drawn card info (phase 1) / hand label (phase 2) -->
+      <div id="drawnSection">
+        <div id="drawnInfo"></div>
+        <div id="drawnCardDisplay"></div>
+      </div>
+      <!-- Left: player's own hand (phase 2 only) -->
+      <div id="phase2HandSection" style="display:none">
+        <div class="hand-label">Your cards:</div>
+        <div id="phase2Cards"></div>
+      </div>
+      <!-- Center: turn indicator -->
+      <div id="turnSection">
+        <div id="turnInfo"></div>
+        <div id="circleCount"></div>
+      </div>
+      <!-- Right: all player piles (rendered by JS) -->
+      <div id="allPiles"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

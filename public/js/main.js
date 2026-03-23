@@ -35,6 +35,9 @@ $('btnCopyCode').addEventListener('click', () => {
 
 $('btnStart').addEventListener('click', () => socket.emit('startGame'));
 $('btnPlayAgain').addEventListener('click', () => socket.emit('playAgain'));
+$('btnConcede').addEventListener('click', () => {
+  if (confirm('Concede and lose this game?')) socket.emit('concede');
+});
 
 // ── Responsive table scaling ──────────────────────────────────
 function scaleTable() {
@@ -44,15 +47,16 @@ function scaleTable() {
   const barH     = 110;
   const availW   = window.innerWidth;
   const availH   = window.innerHeight - barH;
-  const naturalW = 524;   // 480px + 2×22px border
-  const naturalH = 804;   // 760px + 2×22px border
+  const naturalW = 524;
+  const naturalH = 804;
   const scale    = Math.min(1, availW / naturalW, availH / naturalH);
+  const scaledW  = naturalW * scale;
+  const scaledH  = naturalH * scale;
 
-  // transform doesn't affect layout, so use zoom to shrink the layout box,
-  // then flex in #tableWrap handles centering based on the true zoomed size
-  table.style.zoom            = scale;
-  table.style.transform       = '';
-  table.style.transformOrigin = '';
+  table.style.zoom     = scale;
+  table.style.position = 'absolute';
+  table.style.left     = `${(availW - scaledW) / 2}px`;
+  table.style.top      = `${(availH - scaledH) / 2}px`;
 }
 
 setScaleTable(scaleTable);

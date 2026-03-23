@@ -400,6 +400,23 @@ function registerHandlers(io, socket) {
     broadcastState(io, myRoomId);
   });
 
+  socket.on('concede', () => {
+    if (!myRoomId) return;
+    const room = rooms[myRoomId];
+    if (!room || room.phase === 'waiting' || room.phase === 'ended') return;
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    // Emit game over with this player as the loser
+    room.phase = 'ended';
+    io.to(myRoomId).emit('gameOver', {
+      phase: room.phase,
+      loser: { id: player.id, name: player.name },
+      conceded: true
+    });
+  });
+
   socket.on('playAgain', () => {
     if (!myRoomId) return;
     const room = rooms[myRoomId];

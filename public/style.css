@@ -123,11 +123,7 @@ button {
 
 #tableWrap {
   position: absolute;
-  inset: 0 0 110px 0; /* fill viewport minus status bar */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  inset: 0 0 110px 0;
 }
 
 /* ── The Table ────────────────────────────────────────────────── */
@@ -464,6 +460,18 @@ button {
   width: 50px;
   height: 72px;
 }
+
+/* ── Concede ─────────────────────────────────────────────────── */
+#btnConcede {
+  background: transparent;
+  color: #666;
+  border: 1px solid #444;
+  font-size: 0.75rem;
+  padding: 6px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+#btnConcede:hover { color: #e74c3c; border-color: #e74c3c; }
 
 /* ── Phase 2 Hand ────────────────────────────────────────────── */
 #phase2HandSection {

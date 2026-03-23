@@ -41,14 +41,18 @@ function scaleTable() {
   const table = $('table');
   if (!table) return;
 
-  const barH   = 110;
-  const availW = window.innerWidth;
-  const availH = window.innerHeight - barH;
+  const barH     = 110;
+  const availW   = window.innerWidth;
+  const availH   = window.innerHeight - barH;
   const naturalW = 524;   // 480px + 2×22px border
   const naturalH = 804;   // 760px + 2×22px border
-  const scale  = Math.min(1, availW / naturalW, availH / naturalH);
+  const scale    = Math.min(1, availW / naturalW, availH / naturalH);
 
-  table.style.zoom = scale;
+  // transform doesn't affect layout, so use zoom to shrink the layout box,
+  // then flex in #tableWrap handles centering based on the true zoomed size
+  table.style.zoom            = scale;
+  table.style.transform       = '';
+  table.style.transformOrigin = '';
 }
 
 setScaleTable(scaleTable);

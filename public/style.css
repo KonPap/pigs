@@ -118,18 +118,16 @@ button {
 #game {
   width: 100vw;
   height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding-bottom: 110px; /* reserve space for fixed status bar */
-  box-sizing: border-box;
+  position: relative;
 }
 
 #tableWrap {
+  position: absolute;
+  inset: 0 0 110px 0; /* fill viewport minus status bar */
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 /* ── The Table ────────────────────────────────────────────────── */

@@ -4,6 +4,10 @@ import { state } from './state.js';
 import { renderGame } from './render.js';
 import { showWaitingRoom, showGameOver, showLobbyError } from './ui.js';
 
+// Imported lazily to avoid circular deps — set by main.js after init
+let _scaleTable = () => {};
+export function setScaleTable(fn) { _scaleTable = fn; }
+
 const $ = id => document.getElementById(id);
 
 const socket = window.io();
@@ -34,6 +38,7 @@ socket.on('gameStarted', gs => {
   $('gameOverScreen').style.display = 'none';
   $('game').style.display = 'flex';
   $('scoreTable').style.display = '';  // reset for next game
+  _scaleTable();
   renderGame();
 });
 

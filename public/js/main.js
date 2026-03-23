@@ -1,6 +1,6 @@
 // ES module — entry point, button listeners
 
-import socket from './socket.js';
+import socket, { setScaleTable } from './socket.js';
 import { setSocket } from './render.js';
 import { state } from './state.js';
 import { showLobbyError } from './ui.js';
@@ -35,3 +35,26 @@ $('btnCopyCode').addEventListener('click', () => {
 
 $('btnStart').addEventListener('click', () => socket.emit('startGame'));
 $('btnPlayAgain').addEventListener('click', () => socket.emit('playAgain'));
+
+// ── Responsive table scaling ──────────────────────────────────
+function scaleTable() {
+  const table = $('table');
+  const wrap  = $('tableWrap');
+  const bar   = $('statusBar');
+  if (!table || !wrap) return;
+
+  const barH     = bar ? bar.offsetHeight : 110;
+  const availW   = window.innerWidth;
+  const availH   = window.innerHeight - barH;
+  const naturalW = 684;   // 640px + 2×22px border
+  const naturalH = 624;   // 580px + 2×22px border
+  const scale    = Math.min(1, availW / naturalW, availH / naturalH);
+
+  table.style.transform       = `scale(${scale})`;
+  table.style.transformOrigin = 'center center';
+  wrap.style.height           = (naturalH * scale) + 'px';
+}
+
+setScaleTable(scaleTable);
+scaleTable();
+window.addEventListener('resize', scaleTable);

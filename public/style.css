@@ -514,12 +514,21 @@ button {
 }
 
 /* ── Responsive ──────────────────────────────────────────────── */
-@media (max-height: 700px) {
-  #table { width: 520px; height: 470px; }
-  #statusBar { min-height: 80px; }
-}
-@media (max-width: 680px) {
-  #table { width: 360px; height: 330px; border-width: 14px; }
-  .draw-card { width: 30px; height: 44px; }
-  .seq-pile { width: 46px; height: 66px; }
+/* Table scales via JS (scaleTable in main.js) — no pixel overrides needed */
+
+@media (max-width: 540px) {
+  #statusBar {
+    flex-wrap: wrap;
+    min-height: unset;
+    max-height: unset;
+    padding: 6px 10px 8px;
+    gap: 8px;
+  }
+  #drawnSection  { min-width: unset; flex: 1 1 45%; }
+  #turnSection   { flex: 1 1 45%; }
+  #allPiles      { flex: 1 1 100%; justify-content: center; }
+  #phase2HandSection { max-width: 100%; flex: 1 1 100%; }
+
+  .lobby-box, .gameover-box { padding: 28px 20px; }
+  .lobby-box h1 { font-size: 2rem; }
 }

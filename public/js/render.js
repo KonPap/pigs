@@ -1,132 +1,15 @@
-/* ════════════════════════════════════════════
-   Pig Card Game — Client
-   ════════════════════════════════════════════ */
+// ES module — all render functions
 
-const socket = io();
-
-let myId = null;
-let myRoomId = null;
-let isHost = false;
-let gameState = null;
+import { SUIT_SYMBOL, SUIT_COLOR, RANK_LABEL, makeCard, makeCardBack } from './cards.js';
+import { state } from './state.js';
 
 const $ = id => document.getElementById(id);
 
-// ── Lobby ──────────────────────────────────────────────────────
-$('btnCreate').addEventListener('click', () => {
-  const name = $('playerName').value.trim();
-  if (!name) { showLobbyError('Enter your name first'); return; }
-  socket.emit('createRoom', { name });
-});
+let _socket = null;
+export function setSocket(s) { _socket = s; }
 
-$('btnJoin').addEventListener('click', joinRoom);
-$('roomCodeInput').addEventListener('keydown', e => { if (e.key === 'Enter') joinRoom(); });
-
-function joinRoom() {
-  const name = $('playerName').value.trim();
-  const code = $('roomCodeInput').value.trim().toUpperCase();
-  if (!name) { showLobbyError('Enter your name'); return; }
-  if (!code) { showLobbyError('Enter a room code'); return; }
-  socket.emit('joinRoom', { roomId: code, name });
-}
-
-$('btnCopyCode').addEventListener('click', () => {
-  navigator.clipboard.writeText(myRoomId).then(() => {
-    $('btnCopyCode').textContent = '✓ Copied';
-    setTimeout(() => { $('btnCopyCode').textContent = '⎘ Copy'; }, 1500);
-  });
-});
-
-$('btnStart').addEventListener('click', () => socket.emit('startGame'));
-$('btnPlayAgain').addEventListener('click', () => socket.emit('playAgain'));
-
-function showLobbyError(msg) {
-  $('lobbyError').textContent = msg;
-  setTimeout(() => { $('lobbyError').textContent = ''; }, 3000);
-}
-
-// ── Socket Events ──────────────────────────────────────────────
-socket.on('roomCreated', ({ roomId }) => {
-  myRoomId = roomId;
-  isHost = true;
-  $('displayRoomId').textContent = roomId;
-  $('nameForm').style.display = 'none';
-  $('waitingRoom').style.display = 'block';
-  $('btnStart').style.display = 'block';
-  $('waitingMsg').style.display = 'none';
-});
-
-socket.on('roomUpdate', ({ roomId, players, hostId }) => {
-  myRoomId = roomId;
-  isHost = socket.id === hostId;
-  $('displayRoomId').textContent = roomId;
-  $('nameForm').style.display = 'none';
-  $('waitingRoom').style.display = 'block';
-
-  const ul = $('playerList');
-  ul.innerHTML = '';
-  players.forEach(p => {
-    const li = document.createElement('li');
-    li.textContent = p.name;
-    if (p.id === hostId) li.classList.add('host-li');
-    ul.appendChild(li);
-  });
-
-  $('btnStart').style.display = isHost ? 'block' : 'none';
-  $('waitingMsg').style.display = isHost ? 'none' : 'block';
-
-  $('lobby').style.display = 'flex';
-  $('gameOverScreen').style.display = 'none';
-  $('game').style.display = 'none';
-});
-
-socket.on('joinError', msg => showLobbyError(msg));
-socket.on('gameError', msg => console.warn('Game error:', msg));
-
-socket.on('gameStarted', state => {
-  myId = state.myId;
-  gameState = state;
-  $('lobby').style.display = 'none';
-  $('gameOverScreen').style.display = 'none';
-  $('game').style.display = 'flex';
-  $('scoreTable').style.display = '';  // reset for next game
-  renderGame();
-});
-
-socket.on('stateUpdate', state => {
-  myId = state.myId;
-  gameState = state;
-  renderGame();
-});
-
-socket.on('gameOver', ({ scores, loser, phase }) => {
-  gameState = null;
-  showGameOver(scores, loser, phase);
-});
-
-// ── Card Helpers ───────────────────────────────────────────────
-const SUIT_SYMBOL = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
-const SUIT_COLOR  = { hearts: 'red', diamonds: 'red', clubs: 'black', spades: 'black' };
-const RANK_LABEL  = r => ({ 11: 'J', 12: 'Q', 13: 'K', 14: 'A' }[r] || String(r));
-
-function makeCard(card, sizeClass = 'card-lg') {
-  const el = document.createElement('div');
-  el.className = `card ${SUIT_COLOR[card.suit]} ${sizeClass}`;
-  el.innerHTML = `
-    <div class="card-rank">${RANK_LABEL(card.rank)}</div>
-    <div class="card-suit-top">${SUIT_SYMBOL[card.suit]}</div>
-    <div class="card-center-suit">${SUIT_SYMBOL[card.suit]}</div>
-  `;
-  return el;
-}
-
-function makeCardBack() {
-  const el = document.createElement('div');
-  el.className = 'pile-card-back';
-  return el;
-}
-
-// ── Render ─────────────────────────────────────────────────────
-function renderGame() {
+export function renderGame() {
+  const gameState = state.gameState;
   if (!gameState) return;
   if (gameState.phase === 'phase2') {
     $('drawnSection').style.display = 'none';
@@ -149,8 +32,9 @@ function renderGame() {
 
 // ── Draw Circle ────────────────────────────────────────────────
 function renderDrawCircle() {
-  const state = gameState;
-  const slots = state.drawCircleSlots; // array of booleans, length 36
+  const gameState = state.gameState;
+  const myId = state.myId;
+  const slots = gameState.drawCircleSlots; // array of booleans, length 36
   const container = $('drawCircle');
   container.innerHTML = '';
   if (!slots || slots.length === 0) return;
@@ -160,8 +44,8 @@ function renderDrawCircle() {
   const radius = 170;
   const total = slots.length;
 
-  const isMyTurn = state.currentPlayerId === myId;
-  const canDraw = isMyTurn && !state.drawnCard && !state.mustPlayFromPile;
+  const isMyTurn = gameState.currentPlayerId === myId;
+  const canDraw = isMyTurn && !gameState.drawnCard && !gameState.mustPlayFromPile;
 
   for (let i = 0; i < total; i++) {
     if (!slots[i]) continue; // slot is empty — leave the gap
@@ -180,7 +64,7 @@ function renderDrawCircle() {
     if (canDraw) {
       const slotIndex = i;
       card.addEventListener('click', () => {
-        socket.emit('drawCard', { slotIndex });
+        _socket.emit('drawCard', { slotIndex });
       });
     }
 
@@ -190,12 +74,13 @@ function renderDrawCircle() {
 
 // ── Sequence Piles ─────────────────────────────────────────────
 function renderSequences() {
-  const state = gameState;
-  const isMyTurn = state.currentPlayerId === myId;
-  const drawnCard = state.drawnCard;
+  const gameState = state.gameState;
+  const myId = state.myId;
+  const isMyTurn = gameState.currentPlayerId === myId;
+  const drawnCard = gameState.drawnCard;
 
   for (let i = 0; i < 4; i++) {
-    const pile = state.sequences[i]; // { topCard, count }
+    const pile = gameState.sequences[i]; // { topCard, count }
     const pileEl = $(`seq-${i}`);
     const pileCards = pileEl.querySelector('.pile-cards');
     pileCards.innerHTML = '';
@@ -216,16 +101,16 @@ function renderSequences() {
 
     if (isMyTurn) {
       // Drawn card must go to sequence
-      if (drawnCard && state.mustSequence && state.sequencePileIndex === i) {
+      if (drawnCard && gameState.mustSequence && gameState.sequencePileIndex === i) {
         pileEl.classList.add('valid-target');
         pileEl.style.cursor = 'pointer';
-        pileEl.onclick = () => socket.emit('playSequence', { pileIndex: i });
+        pileEl.onclick = () => _socket.emit('playSequence', { pileIndex: i });
       }
       // Top pile card must go to sequence (at turn start, before drawing)
-      else if (!drawnCard && state.mustPlayFromPile && state.pileSequenceIndex === i) {
+      else if (!drawnCard && gameState.mustPlayFromPile && gameState.pileSequenceIndex === i) {
         pileEl.classList.add('valid-target');
         pileEl.style.cursor = 'pointer';
-        pileEl.onclick = () => socket.emit('playPileToSequence');
+        pileEl.onclick = () => _socket.emit('playPileToSequence');
       }
     }
   }
@@ -256,16 +141,17 @@ function slotPosition(relativeSlot, totalPlayers) {
 }
 
 function renderPlayerZones() {
-  const state = gameState;
+  const gameState = state.gameState;
+  const myId = state.myId;
   const container = $('playerZones');
   container.innerHTML = '';
 
-  const myIndex = state.players.findIndex(p => p.id === myId);
-  const n = state.players.length;
-  const isMyTurn = state.currentPlayerId === myId;
-  const targets = state.playerTargets || [];
+  const myIndex = gameState.players.findIndex(p => p.id === myId);
+  const n = gameState.players.length;
+  const isMyTurn = gameState.currentPlayerId === myId;
+  const targets = gameState.playerTargets || [];
 
-  state.players.forEach((player, i) => {
+  gameState.players.forEach((player, i) => {
     const relSlot = ((i - myIndex) + n) % n; // 0=self, 1=right, 2=opposite, 3=left
     const pos = slotPosition(relSlot, n);
 
@@ -275,26 +161,26 @@ function renderPlayerZones() {
     zone.style.top  = pos.y + 'px';
 
     const isSelf = player.id === myId;
-    const isActive = player.id === state.currentPlayerId;
+    const isActive = player.id === gameState.currentPlayerId;
 
     // Dump from drawn card (after drawing)
-    const canDumpDrawn = !isSelf && isMyTurn && state.drawnCard && !state.mustSequence &&
+    const canDumpDrawn = !isSelf && isMyTurn && gameState.drawnCard && !gameState.mustSequence &&
       targets.some(t => t.targetId === player.id);
 
     // Forced dump from own pile (at turn start, before drawing)
-    const pileDumpTargets = state.pileDumpTargets || [];
-    const mustDumpOwn = !isSelf && isMyTurn && state.mustPlayFromPile && state.pileSequenceIndex === -1 &&
+    const pileDumpTargets = gameState.pileDumpTargets || [];
+    const mustDumpOwn = !isSelf && isMyTurn && gameState.mustPlayFromPile && gameState.pileSequenceIndex === -1 &&
       pileDumpTargets.some(t => t.targetId === player.id);
 
     if (canDumpDrawn) {
       zone.classList.add('valid-dump');
       zone.addEventListener('click', () => {
-        socket.emit('playCard', { targetId: player.id });
+        _socket.emit('playCard', { targetId: player.id });
       });
     } else if (mustDumpOwn) {
       zone.classList.add('valid-dump');
       zone.addEventListener('click', () => {
-        socket.emit('dumpPileCard', { targetId: player.id });
+        _socket.emit('dumpPileCard', { targetId: player.id });
       });
     }
 
@@ -339,24 +225,25 @@ function renderPlayerZones() {
 
 // ── Drawn Card (status bar) ────────────────────────────────────
 function renderDrawnCard() {
-  const state = gameState;
+  const gameState = state.gameState;
+  const myId = state.myId;
   const infoEl = $('drawnInfo');
   const displayEl = $('drawnCardDisplay');
   displayEl.innerHTML = '';
 
-  const isMyTurn = state.currentPlayerId === myId;
+  const isMyTurn = gameState.currentPlayerId === myId;
 
-  if (!state.drawnCard) {
+  if (!gameState.drawnCard) {
     infoEl.className = '';
-    if (isMyTurn && state.mustPlayFromPile) {
-      infoEl.textContent = state.pileSequenceIndex !== -1
+    if (isMyTurn && gameState.mustPlayFromPile) {
+      infoEl.textContent = gameState.pileSequenceIndex !== -1
         ? 'Play your top card to the sequence!'
         : 'Dump your top card first!';
       infoEl.className = 'my-turn no-play';
-    } else if (isMyTurn && state.drawCircleCount > 0) {
+    } else if (isMyTurn && gameState.drawCircleCount > 0) {
       infoEl.textContent = 'Click a circle card to draw';
       infoEl.className = 'my-turn';
-    } else if (isMyTurn && state.drawCircleCount === 0) {
+    } else if (isMyTurn && gameState.drawCircleCount === 0) {
       infoEl.textContent = 'Circle is empty — game ending…';
       infoEl.className = 'my-turn';
     } else {
@@ -365,22 +252,22 @@ function renderDrawnCard() {
     return;
   }
 
-  const card = state.drawnCard;
+  const card = gameState.drawnCard;
   const cardEl = makeCard(card, 'card-lg');
   displayEl.appendChild(cardEl);
 
   if (isMyTurn) {
     infoEl.className = 'my-turn';
-    if (state.mustSequence) {
+    if (gameState.mustSequence) {
       infoEl.textContent = `Goes to sequence!\nClick the ${SUIT_SYMBOL[card.suit]} pile`;
-    } else if ((state.playerTargets || []).length > 0) {
+    } else if ((gameState.playerTargets || []).length > 0) {
       infoEl.textContent = 'Click a highlighted\nplayer to dump on them\n(or keep drawing next turn)';
     } else {
       infoEl.textContent = 'No valid plays.\nCard goes to YOUR pile.';
       infoEl.className = 'my-turn no-play';
     }
   } else {
-    const name = state.players.find(p => p.id === state.currentPlayerId)?.name || '';
+    const name = gameState.players.find(p => p.id === gameState.currentPlayerId)?.name || '';
     infoEl.className = '';
     infoEl.textContent = `${name} drew:`;
   }
@@ -388,22 +275,23 @@ function renderDrawnCard() {
 
 // ── Status Bar ─────────────────────────────────────────────────
 function renderStatusBar() {
-  const state = gameState;
-  if (!state) return;
+  const gameState = state.gameState;
+  const myId = state.myId;
+  if (!gameState) return;
 
-  const isMyTurn = state.currentPlayerId === myId;
+  const isMyTurn = gameState.currentPlayerId === myId;
 
   const turnEl = $('turnInfo');
   if (isMyTurn) {
     turnEl.textContent = 'Your turn';
     turnEl.style.color = '#f1c40f';
   } else {
-    const name = state.players.find(p => p.id === state.currentPlayerId)?.name || '?';
+    const name = gameState.players.find(p => p.id === gameState.currentPlayerId)?.name || '?';
     turnEl.textContent = `${name}'s turn`;
     turnEl.style.color = '#aaa';
   }
 
-  $('circleCount').textContent = `${state.drawCircleCount} cards in circle`;
+  $('circleCount').textContent = `${gameState.drawCircleCount} cards in circle`;
 
   // Piles are now visible on the table — just show circle count here
   $('allPiles').innerHTML = '';
@@ -416,13 +304,14 @@ function renderPhase2Circle() {
 
 // ── Phase 2: Player's own hand ──────────────────────────────────
 function renderPhase2Hand() {
-  const state = gameState;
-  const isMyTurn = state.currentPlayerId === myId;
-  const validIds = new Set(state.phase2ValidCardIds || []);
+  const gameState = state.gameState;
+  const myId = state.myId;
+  const isMyTurn = gameState.currentPlayerId === myId;
+  const validIds = new Set(gameState.phase2ValidCardIds || []);
   const handEl = $('phase2Cards');
   handEl.innerHTML = '';
 
-  const hand = state.myHand || [];
+  const hand = gameState.myHand || [];
   if (hand.length === 0) {
     const msg = document.createElement('div');
     msg.style.cssText = 'color:#aaa;font-size:0.8rem;padding:4px;';
@@ -439,7 +328,7 @@ function renderPhase2Hand() {
     if (canPlay) {
       cardEl.classList.add('playable');
       cardEl.addEventListener('click', () => {
-        socket.emit('playPhase2Card', { cardId: card.id });
+        _socket.emit('playPhase2Card', { cardId: card.id });
       });
     } else if (!isMyTurn && validIds.has(card.id)) {
       // Dim cards that aren't playable this turn but show which ones fit
@@ -453,69 +342,25 @@ function renderPhase2Hand() {
 
 // ── Phase 2: Status bar ─────────────────────────────────────────
 function renderPhase2StatusBar() {
-  const state = gameState;
-  const isMyTurn = state.currentPlayerId === myId;
+  const gameState = state.gameState;
+  const myId = state.myId;
+  const isMyTurn = gameState.currentPlayerId === myId;
 
   const turnEl = $('turnInfo');
   if (isMyTurn) {
     turnEl.textContent = 'Your turn — play a card';
     turnEl.style.color = '#f1c40f';
   } else {
-    const name = state.players.find(p => p.id === state.currentPlayerId)?.name || '?';
+    const name = gameState.players.find(p => p.id === gameState.currentPlayerId)?.name || '?';
     turnEl.textContent = `${name}'s turn`;
     turnEl.style.color = '#aaa';
   }
 
-  const validIds = new Set(state.phase2ValidCardIds || []);
+  const validIds = new Set(gameState.phase2ValidCardIds || []);
   if (isMyTurn && validIds.size === 0) {
     $('circleCount').textContent = 'No valid plays — skipping…';
   } else {
     $('circleCount').textContent = 'Phase 2 — play to the sequences';
   }
   $('allPiles').innerHTML = '';
-}
-
-// ── Game Over ──────────────────────────────────────────────────
-function showGameOver(scores, loser, phase) {
-  $('game').style.display = 'none';
-  $('gameOverScreen').style.display = 'flex';
-
-  if (phase === 'phase2') {
-    // Phase 2 end: show who lost
-    if (!loser) {
-      $('gameOverTitle').textContent = "It's a draw!";
-    } else if (loser.id === myId) {
-      $('gameOverTitle').textContent = '😬 You Lose!';
-    } else {
-      $('gameOverTitle').textContent = `😅 ${loser.name} Loses!`;
-    }
-    $('scoreTable').style.display = 'none';
-  } else {
-    // Phase 1 scores (shouldn't normally reach here anymore, but keep as fallback)
-    $('scoreTable').style.display = '';
-    const winner = scores[0];
-    $('gameOverTitle').textContent = winner.id === myId ? '🏆 You Win!' : `🎉 ${winner.name} Wins!`;
-
-    const tbody = $('scoreRows');
-    tbody.innerHTML = '';
-    scores.forEach((s, i) => {
-      const tr = document.createElement('tr');
-      if (i === 0) tr.classList.add('winner-row');
-      tr.innerHTML = `
-        <td>${i + 1}</td>
-        <td>${s.name}${s.id === myId ? ' (you)' : ''}</td>
-        <td>${s.pileCount}</td>
-        <td>${s.score}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
-
-  if (isHost) {
-    $('btnPlayAgain').style.display = 'block';
-    $('playAgainMsg').style.display = 'none';
-  } else {
-    $('btnPlayAgain').style.display = 'none';
-    $('playAgainMsg').style.display = 'block';
-  }
 }

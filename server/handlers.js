@@ -1,142 +1,12 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
 const crypto = require('crypto');
-
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
-
-app.use(express.static('public'));
-
-const rooms = {};
-
-const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
-const RANKS = [6, 7, 8, 9, 10, 11, 12, 13, 14]; // J=11 Q=12 K=13 A=14
-
-function createDeck(numDecks = 1) {
-  const deck = [];
-  for (let d = 0; d < numDecks; d++) {
-    for (const suit of SUITS) {
-      for (const rank of RANKS) {
-        deck.push({ suit, rank, id: `${suit}_${rank}_${d}` });
-      }
-    }
-  }
-  return deck;
-}
-
-function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = crypto.randomInt(i + 1);
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function generateRoomId() {
-  return crypto.randomBytes(2).toString('hex').toUpperCase();
-}
-
-// Returns pile index (0-3) if card can be placed on that pile, else -1.
-// Sequences run 6→7→…→K (rank 13). Aces are never placed on sequences.
-function canPlaySequence(card, sequences) {
-  if (card.rank === 14) return -1; // Aces never go on sequences
-  for (let i = 0; i < 4; i++) {
-    const pile = sequences[i];
-    if (pile.length === 0 && card.rank === 6) return i;
-    if (pile.length > 0 && card.rank === pile[pile.length - 1].rank + 1) return i;
-  }
-  return -1;
-}
-
-function evaluatePlays(card, sequences, players, currentPlayerId) {
-  const pileIndex = canPlaySequence(card, sequences);
-  if (pileIndex !== -1) {
-    return { mustSequence: true, sequencePileIndex: pileIndex, playerTargets: [] };
-  }
-
-  const n = players.length;
-  const myIdx = players.findIndex(p => p.id === currentPlayerId);
-  const neighborIds = new Set();
-  if (n >= 2) {
-    neighborIds.add(players[(myIdx + 1) % n].id);
-    neighborIds.add(players[(myIdx - 1 + n) % n].id);
-  }
-
-  const playerTargets = [];
-  for (const player of players) {
-    if (player.id === currentPlayerId) continue;
-    if (!neighborIds.has(player.id)) continue;
-    if (player.pile.length === 0) continue;
-    const topCard = player.pile[player.pile.length - 1];
-    if (card.rank === topCard.rank - 1) {
-      playerTargets.push({ targetId: player.id, targetName: player.name });
-    }
-  }
-  return { mustSequence: false, sequencePileIndex: -1, playerTargets };
-}
-
-function nextTurn(room) {
-  room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
-  checkMustPlayFromPile(room);
-}
-
-// At turn start: check if top pile card must be played (sequence first, then neighbor dump).
-// Keeps re-checking after each forced play until nothing is possible.
-function checkMustPlayFromPile(room) {
-  const currentPlayer = room.players[room.currentTurnIndex];
-  if (!currentPlayer || currentPlayer.pile.length === 0) {
-    room.mustPlayFromPile = false;
-    room.pileSequenceIndex = -1;
-    room.pileDumpTargets = [];
-    return;
-  }
-
-  const topCard = currentPlayer.pile[currentPlayer.pile.length - 1];
-
-  // 1. Sequence has priority
-  const seqIdx = canPlaySequence(topCard, room.sequences);
-  if (seqIdx !== -1) {
-    room.mustPlayFromPile = true;
-    room.pileSequenceIndex = seqIdx;
-    room.pileDumpTargets = [];
-    return;
-  }
-
-  // 2. Neighbor dump
-  const n = room.players.length;
-  const myIdx = room.currentTurnIndex;
-  const neighborIds = new Set();
-  if (n >= 2) {
-    neighborIds.add(room.players[(myIdx + 1) % n].id);
-    neighborIds.add(room.players[(myIdx - 1 + n) % n].id);
-  }
-
-  const targets = [];
-  for (const player of room.players) {
-    if (player.id === currentPlayer.id) continue;
-    if (!neighborIds.has(player.id)) continue;
-    if (player.pile.length === 0) continue;
-    const neighborTop = player.pile[player.pile.length - 1];
-    if (topCard.rank === neighborTop.rank - 1) {
-      targets.push({ targetId: player.id, targetName: player.name });
-    }
-  }
-
-  room.mustPlayFromPile = targets.length > 0;
-  room.pileSequenceIndex = -1;
-  room.pileDumpTargets = targets;
-}
+const { createDeck, shuffle, canPlaySequence, evaluatePlays, checkMustPlayFromPile, getPhase2ValidCards } = require('./game');
+const { rooms, generateRoomId, freshRoomState, resetForGame, buildState, broadcastState } = require('./rooms');
+const { MAX_PLAYERS } = require('./config');
 
 // ── Phase 2 helpers ──────────────────────────────────────────────
-function getPhase2ValidCards(player, sequences) {
-  return player.pile.filter(card => canPlaySequence(card, sequences) !== -1);
-}
 
 // End: last player with cards loses
-function checkPhase2End(roomId) {
+function checkPhase2End(io, roomId) {
   const room = rooms[roomId];
   const withCards = room.players.filter(p => p.pile.length > 0);
   if (withCards.length <= 1) {
@@ -152,7 +22,7 @@ function checkPhase2End(roomId) {
 }
 
 // End when nobody with cards can play: most cards = loser
-function checkPhase2AllStuck(roomId) {
+function checkPhase2AllStuck(io, roomId) {
   const room = rooms[roomId];
   const canPlay = room.players.some(
     p => p.pile.length > 0 && getPhase2ValidCards(p, room.sequences).length > 0
@@ -183,7 +53,7 @@ function advancePhase2Turn(room) {
   return true; // all stuck
 }
 
-function startPhase2(roomId) {
+function startPhase2(io, roomId) {
   const room = rooms[roomId];
   if (!room) return;
 
@@ -202,74 +72,29 @@ function startPhase2(roomId) {
     p.pile = p.pile.filter(c => c.rank !== 14);
   }
 
-  if (checkPhase2End(roomId)) return;
+  if (checkPhase2End(io, roomId)) return;
 
   // Find first player who has cards and can play
   room.currentTurnIndex = -1; // advancePhase2Turn increments before checking
   const allStuck = advancePhase2Turn(room);
-  if (allStuck) { checkPhase2AllStuck(roomId); return; }
+  if (allStuck) { checkPhase2AllStuck(io, roomId); return; }
 
-  broadcastState(roomId);
-}
-
-// ── State builder ────────────────────────────────────────────────
-function buildState(room, forPlayerId) {
-  const current = room.players[room.currentTurnIndex];
-  const isPhase2 = room.phase === 'phase2';
-  const myPlayer = room.players.find(p => p.id === forPlayerId);
-
-  return {
-    players: room.players.map(p => ({
-      id: p.id,
-      name: p.name,
-      pileCount: p.pile.length,
-      topCard: p.pile.length > 0 ? p.pile[p.pile.length - 1] : null,
-      connected: p.connected,
-      isHost: p.id === room.hostId
-    })),
-    drawCircleCount: isPhase2 ? 0 : room.drawCircleSlots.filter(s => s !== null).length,
-    drawCircleSlots: isPhase2 ? [] : room.drawCircleSlots.map(s => s !== null),
-    sequences: room.sequences.map(pile => ({
-      topCard: pile.length > 0 ? pile[pile.length - 1] : null,
-      count: pile.length
-    })),
-    currentTurnIndex: room.currentTurnIndex,
-    currentPlayerId: current ? current.id : null,
-    drawnCard: room.drawnCard,
-    mustSequence: room.mustSequence,
-    sequencePileIndex: room.sequencePileIndex,
-    playerTargets: room.playerTargets,
-    mustPlayFromPile: room.mustPlayFromPile,
-    pileSequenceIndex: room.pileSequenceIndex,
-    pileDumpTargets: room.pileDumpTargets,
-    // Phase 2 specific
-    phase: room.phase,
-    myHand: isPhase2 && myPlayer ? myPlayer.pile.slice() : null,
-    // Which of the player's own cards can be played right now
-    phase2ValidCardIds: isPhase2 && myPlayer
-      ? getPhase2ValidCards(myPlayer, room.sequences).map(c => c.id)
-      : [],
-    myId: forPlayerId
-  };
-}
-
-function broadcastState(roomId) {
-  const room = rooms[roomId];
-  if (!room) return;
-  for (const p of room.players) {
-    const sock = io.sockets.sockets.get(p.id);
-    if (sock) sock.emit('stateUpdate', buildState(room, p.id));
-  }
+  broadcastState(io, roomId);
 }
 
 // Circle ends → go to phase 2
-function endCirclePhase(roomId) {
+function endCirclePhase(io, roomId) {
   const room = rooms[roomId];
   if (!room) return;
-  startPhase2(roomId);
+  startPhase2(io, roomId);
 }
 
-function handleDraw(roomId, requestedSlot) {
+function nextTurn(room) {
+  room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
+  checkMustPlayFromPile(room);
+}
+
+function handleDraw(io, roomId, requestedSlot) {
   const room = rooms[roomId];
   if (!room || room.phase !== 'playing') return;
 
@@ -277,7 +102,7 @@ function handleDraw(roomId, requestedSlot) {
     .map((s, i) => (s !== null ? i : -1))
     .filter(i => i !== -1);
 
-  if (filled.length === 0) { endCirclePhase(roomId); return; }
+  if (filled.length === 0) { endCirclePhase(io, roomId); return; }
 
   const currentPlayer = room.players[room.currentTurnIndex];
 
@@ -296,7 +121,7 @@ function handleDraw(roomId, requestedSlot) {
   room.sequencePileIndex = sequencePileIndex;
   room.playerTargets = playerTargets;
 
-  broadcastState(roomId);
+  broadcastState(io, roomId);
 
   if (!mustSequence && playerTargets.length === 0) {
     setTimeout(() => {
@@ -312,40 +137,31 @@ function handleDraw(roomId, requestedSlot) {
       // If that was the last card in the circle, start phase 2 now
       const remaining = r.drawCircleSlots.filter(s => s !== null).length;
       if (remaining === 0) {
-        endCirclePhase(roomId);
+        endCirclePhase(io, roomId);
         return;
       }
       nextTurn(r);
-      broadcastState(roomId);
+      broadcastState(io, roomId);
     }, 1200);
   }
 }
 
-// ── Socket handlers ─────────────────────────────────────────────
-io.on('connection', (socket) => {
+// ── Socket handlers ──────────────────────────────────────────────
+
+function registerHandlers(io, socket) {
   let myRoomId = null;
+
+  // Helper to assert it's the caller's turn
+  function assertMyTurn(room) {
+    const currentPlayer = room.players[room.currentTurnIndex];
+    return currentPlayer && currentPlayer.id === socket.id;
+  }
 
   socket.on('createRoom', ({ name }) => {
     let roomId = generateRoomId();
     while (rooms[roomId]) roomId = generateRoomId();
 
-    rooms[roomId] = {
-      hostId: socket.id,
-      players: [{ id: socket.id, name, pile: [], connected: true }],
-      drawCircleSlots: [],
-      sequences: [[], [], [], []],
-      currentTurnIndex: 0,
-      drawnCard: null,
-      drawingPlayerId: null,
-      mustSequence: false,
-      sequencePileIndex: -1,
-      playerTargets: [],
-      mustPlayFromPile: false,
-      pileSequenceIndex: -1,
-      pileDumpTargets: [],
-
-      phase: 'waiting'
-    };
+    rooms[roomId] = freshRoomState(socket.id, name);
 
     myRoomId = roomId;
     socket.join(roomId);
@@ -361,7 +177,7 @@ io.on('connection', (socket) => {
     const room = rooms[roomId];
     if (!room) { socket.emit('joinError', 'Room not found'); return; }
     if (room.phase !== 'waiting') { socket.emit('joinError', 'Game already started'); return; }
-    if (room.players.length >= 4) { socket.emit('joinError', 'Room is full (max 4)'); return; }
+    if (room.players.length >= MAX_PLAYERS) { socket.emit('joinError', 'Room is full (max 4)'); return; }
     if (room.players.find(p => p.name === name)) {
       socket.emit('joinError', 'Name already taken'); return;
     }
@@ -381,19 +197,7 @@ io.on('connection', (socket) => {
     const room = rooms[myRoomId];
     if (!room || room.hostId !== socket.id) return;
 
-    room.phase = 'playing';
-    room.sequences = [[], [], [], []];
-    room.currentTurnIndex = 0;
-    room.drawnCard = null;
-    room.drawingPlayerId = null;
-    room.mustSequence = false;
-    room.sequencePileIndex = -1;
-    room.playerTargets = [];
-    room.mustPlayFromPile = false;
-    room.pileSequenceIndex = -1;
-    room.pileDumpTargets = [];
-    for (const p of room.players) p.pile = [];
-
+    resetForGame(room);
     room.drawCircleSlots = shuffle(createDeck(1));
 
     for (const p of room.players) {
@@ -408,8 +212,7 @@ io.on('connection', (socket) => {
     const room = rooms[myRoomId];
     if (!room || room.phase !== 'playing') return;
 
-    const currentPlayer = room.players[room.currentTurnIndex];
-    if (!currentPlayer || currentPlayer.id !== socket.id) {
+    if (!assertMyTurn(room)) {
       socket.emit('gameError', 'Not your turn'); return;
     }
     if (!room.mustPlayFromPile) {
@@ -418,6 +221,7 @@ io.on('connection', (socket) => {
     if (!room.pileDumpTargets.some(t => t.targetId === targetId)) {
       socket.emit('gameError', 'Invalid dump target'); return;
     }
+    const currentPlayer = room.players[room.currentTurnIndex];
     if (currentPlayer.pile.length === 0) {
       socket.emit('gameError', 'Your pile is empty'); return;
     }
@@ -430,7 +234,7 @@ io.on('connection', (socket) => {
     const card = currentPlayer.pile.pop();
     target.pile.push(card);
     checkMustPlayFromPile(room);
-    broadcastState(myRoomId);
+    broadcastState(io, myRoomId);
   });
 
   // Play top pile card to a sequence pile (forced at turn start)
@@ -439,13 +243,13 @@ io.on('connection', (socket) => {
     const room = rooms[myRoomId];
     if (!room || room.phase !== 'playing') return;
 
-    const currentPlayer = room.players[room.currentTurnIndex];
-    if (!currentPlayer || currentPlayer.id !== socket.id) {
+    if (!assertMyTurn(room)) {
       socket.emit('gameError', 'Not your turn'); return;
     }
     if (!room.mustPlayFromPile || room.pileSequenceIndex === -1) {
       socket.emit('gameError', 'No pile-to-sequence play available'); return;
     }
+    const currentPlayer = room.players[room.currentTurnIndex];
     if (currentPlayer.pile.length === 0) {
       socket.emit('gameError', 'Your pile is empty'); return;
     }
@@ -459,7 +263,7 @@ io.on('connection', (socket) => {
     currentPlayer.pile.pop();
     room.sequences[validIdx].push(card);
     checkMustPlayFromPile(room);
-    broadcastState(myRoomId);
+    broadcastState(io, myRoomId);
   });
 
   socket.on('drawCard', ({ slotIndex } = {}) => {
@@ -467,8 +271,7 @@ io.on('connection', (socket) => {
     const room = rooms[myRoomId];
     if (!room || room.phase !== 'playing') return;
 
-    const currentPlayer = room.players[room.currentTurnIndex];
-    if (!currentPlayer || currentPlayer.id !== socket.id) {
+    if (!assertMyTurn(room)) {
       socket.emit('gameError', 'Not your turn'); return;
     }
     if (room.drawnCard) {
@@ -479,10 +282,10 @@ io.on('connection', (socket) => {
     }
     const filled = room.drawCircleSlots.filter(s => s !== null);
     if (filled.length === 0) {
-      endCirclePhase(myRoomId); return;
+      endCirclePhase(io, myRoomId); return;
     }
 
-    handleDraw(myRoomId, slotIndex);
+    handleDraw(io, myRoomId, slotIndex);
   });
 
   socket.on('playSequence', ({ pileIndex }) => {
@@ -490,8 +293,7 @@ io.on('connection', (socket) => {
     const room = rooms[myRoomId];
     if (!room || room.phase !== 'playing') return;
 
-    const currentPlayer = room.players[room.currentTurnIndex];
-    if (!currentPlayer || currentPlayer.id !== socket.id) {
+    if (!assertMyTurn(room)) {
       socket.emit('gameError', 'Not your turn'); return;
     }
     if (!room.drawnCard || !room.mustSequence) {
@@ -517,9 +319,9 @@ io.on('connection', (socket) => {
 
     const remaining = room.drawCircleSlots.filter(s => s !== null).length;
     if (remaining === 0) {
-      endCirclePhase(myRoomId);
+      endCirclePhase(io, myRoomId);
     } else {
-      broadcastState(myRoomId);
+      broadcastState(io, myRoomId);
     }
   });
 
@@ -528,8 +330,7 @@ io.on('connection', (socket) => {
     const room = rooms[myRoomId];
     if (!room || room.phase !== 'playing') return;
 
-    const currentPlayer = room.players[room.currentTurnIndex];
-    if (!currentPlayer || currentPlayer.id !== socket.id) {
+    if (!assertMyTurn(room)) {
       socket.emit('gameError', 'Not your turn'); return;
     }
     if (!room.drawnCard) {
@@ -562,23 +363,23 @@ io.on('connection', (socket) => {
 
     const remaining = room.drawCircleSlots.filter(s => s !== null).length;
     if (remaining === 0) {
-      endCirclePhase(myRoomId);
+      endCirclePhase(io, myRoomId);
     } else {
-      broadcastState(myRoomId);
+      broadcastState(io, myRoomId);
     }
   });
 
-  // Phase 2: play a card from hand to discard pile
+  // Phase 2: play a card from hand to sequence pile
   socket.on('playPhase2Card', ({ cardId }) => {
     if (!myRoomId) return;
     const room = rooms[myRoomId];
     if (!room || room.phase !== 'phase2') return;
 
-    const currentPlayer = room.players[room.currentTurnIndex];
-    if (!currentPlayer || currentPlayer.id !== socket.id) {
+    if (!assertMyTurn(room)) {
       socket.emit('gameError', 'Not your turn'); return;
     }
 
+    const currentPlayer = room.players[room.currentTurnIndex];
     const cardIdx = currentPlayer.pile.findIndex(c => c.id === cardId);
     if (cardIdx === -1) {
       socket.emit('gameError', 'Card not in your hand'); return;
@@ -593,10 +394,10 @@ io.on('connection', (socket) => {
     currentPlayer.pile.splice(cardIdx, 1);
     room.sequences[seqIdx].push(card);
 
-    if (checkPhase2End(myRoomId)) return;
+    if (checkPhase2End(io, myRoomId)) return;
     const allStuck = advancePhase2Turn(room);
-    if (allStuck) { checkPhase2AllStuck(myRoomId); return; }
-    broadcastState(myRoomId);
+    if (allStuck) { checkPhase2AllStuck(io, myRoomId); return; }
+    broadcastState(io, myRoomId);
   });
 
   socket.on('playAgain', () => {
@@ -635,7 +436,6 @@ io.on('connection', (socket) => {
     }
     if (room.players.every(p => !p.connected)) delete rooms[myRoomId];
   });
-});
+}
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Pig card game running at http://localhost:${PORT}`));
+module.exports = { registerHandlers };

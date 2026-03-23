@@ -121,15 +121,15 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  padding-bottom: 110px; /* reserve space for fixed status bar */
+  box-sizing: border-box;
 }
 
 #tableWrap {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
 }
 
 /* ── The Table ────────────────────────────────────────────────── */
@@ -387,7 +387,10 @@ button {
 
 /* ── Status Bar ───────────────────────────────────────────────── */
 #statusBar {
-  width: 100%;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   padding: 8px 20px 10px;
   background: rgba(0,0,0,0.5);
   backdrop-filter: blur(8px);
@@ -398,6 +401,7 @@ button {
   gap: 16px;
   min-height: 100px;
   max-height: 110px;
+  z-index: 50;
 }
 
 /* Left: drawn card area */

@@ -39,20 +39,16 @@ $('btnPlayAgain').addEventListener('click', () => socket.emit('playAgain'));
 // ── Responsive table scaling ──────────────────────────────────
 function scaleTable() {
   const table = $('table');
-  const wrap  = $('tableWrap');
-  const bar   = $('statusBar');
-  if (!table || !wrap) return;
+  if (!table) return;
 
-  const barH     = bar ? bar.offsetHeight : 110;
-  const availW   = window.innerWidth;
-  const availH   = window.innerHeight - barH;
+  const barH   = 110;
+  const availW = window.innerWidth;
+  const availH = window.innerHeight - barH;
   const naturalW = 524;   // 480px + 2×22px border
   const naturalH = 804;   // 760px + 2×22px border
-  const scale    = Math.min(1, availW / naturalW, availH / naturalH);
+  const scale  = Math.min(1, availW / naturalW, availH / naturalH);
 
-  table.style.zoom     = scale;
-  table.style.transform = '';
-  table.style.margin    = '';
+  table.style.zoom = scale;
 }
 
 setScaleTable(scaleTable);

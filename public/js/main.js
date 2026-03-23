@@ -17,6 +17,9 @@ $('btnCreate').addEventListener('click', () => {
 
 $('btnJoin').addEventListener('click', joinRoom);
 $('roomCodeInput').addEventListener('keydown', e => { if (e.key === 'Enter') joinRoom(); });
+$('roomCodeInput').addEventListener('input', e => {
+  e.target.value = e.target.value.replace(/\D/g, '');
+});
 
 function joinRoom() {
   const name = $('playerName').value.trim();

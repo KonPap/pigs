@@ -53,7 +53,7 @@ function advancePhase2Turn(room) {
   return true; // all stuck
 }
 
-function startPhase2(io, roomId) {
+function startPhase2(io, roomId, keepCurrentPlayer = false) {
   const room = rooms[roomId];
   if (!room) return;
 
@@ -74,19 +74,29 @@ function startPhase2(io, roomId) {
 
   if (checkPhase2End(io, roomId)) return;
 
-  // Find first player who has cards and can play
-  room.currentTurnIndex = -1; // advancePhase2Turn increments before checking
-  const allStuck = advancePhase2Turn(room);
-  if (allStuck) { checkPhase2AllStuck(io, roomId); return; }
+  if (keepCurrentPlayer) {
+    // Last circle card went to a sequence — current player keeps their turn if they can play
+    const current = room.players[room.currentTurnIndex];
+    if (!current || getPhase2ValidCards(current, room.sequences).length === 0) {
+      const allStuck = advancePhase2Turn(room);
+      if (allStuck) { checkPhase2AllStuck(io, roomId); return; }
+    }
+  } else {
+    // Last circle card went to a pile — next player starts phase 2
+    room.currentTurnIndex = (room.currentTurnIndex) % room.players.length; // stays, advancePhase2Turn will increment
+    const allStuck = advancePhase2Turn(room);
+    if (allStuck) { checkPhase2AllStuck(io, roomId); return; }
+  }
 
   broadcastState(io, roomId);
 }
 
 // Circle ends → go to phase 2
-function endCirclePhase(io, roomId) {
+// keepCurrentPlayer: true if the last card went to a sequence (current player starts phase 2)
+function endCirclePhase(io, roomId, keepCurrentPlayer = false) {
   const room = rooms[roomId];
   if (!room) return;
-  startPhase2(io, roomId);
+  startPhase2(io, roomId, keepCurrentPlayer);
 }
 
 function nextTurn(room) {
@@ -319,7 +329,7 @@ function registerHandlers(io, socket) {
 
     const remaining = room.drawCircleSlots.filter(s => s !== null).length;
     if (remaining === 0) {
-      endCirclePhase(io, myRoomId);
+      endCirclePhase(io, myRoomId, true); // last card went to sequence → current player starts phase 2
     } else {
       broadcastState(io, myRoomId);
     }

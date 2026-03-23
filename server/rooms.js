@@ -4,7 +4,7 @@ const { getPhase2ValidCards } = require('./game');
 const rooms = {};
 
 function generateRoomId() {
-  return crypto.randomBytes(2).toString('hex').toUpperCase();
+  return String(crypto.randomInt(10000)).padStart(4, '0');
 }
 
 function freshRoomState(hostId, name) {

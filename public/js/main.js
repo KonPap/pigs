@@ -47,8 +47,8 @@ function scaleTable() {
   const barH     = 110;
   const availW   = window.innerWidth;
   const availH   = window.innerHeight - barH;
-  const naturalW = 524;
-  const naturalH = 804;
+  const naturalW = 480;
+  const naturalH = 760;
   const scale    = Math.min(1, availW / naturalW, availH / naturalH);
   const scaledW  = naturalW * scale;
   const scaledH  = naturalH * scale;

@@ -131,16 +131,9 @@ button {
   position: relative;
   width: 480px;
   height: 760px;
-  /* Green felt blob */
-  background: radial-gradient(ellipse at 40% 35%, #2ecc71 0%, #27ae60 30%, #1e8449 65%, #145a32 100%);
-  border-radius: 50% / 44%;
-  /* Wooden border */
-  border: 22px solid #7d4e1a;
-  box-shadow:
-    inset 0 0 60px rgba(0,0,0,0.35),
-    0 0 0 4px #5d3710,
-    0 0 0 6px #9b6d2a,
-    0 8px 40px rgba(0,0,0,0.8);
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 /* ── Sequences — centered, INSIDE the draw circle ────────────── */

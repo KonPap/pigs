@@ -39,9 +39,9 @@ function renderDrawCircle() {
   container.innerHTML = '';
   if (!slots || slots.length === 0) return;
 
-  const tw = 640, th = 580;
+  const tw = 480, th = 760;
   const cx = tw / 2, cy = th / 2;
-  const radius = 170;
+  const radius = 190;
   const total = slots.length;
 
   const isMyTurn = gameState.currentPlayerId === myId;
@@ -123,10 +123,10 @@ function renderSequences() {
 // Slot 3 = West  (left neighbor)
 function slotPosition(relativeSlot, totalPlayers) {
   const all = {
-    0: { x: 320, y: 505 },  // South — you
-    1: { x: 565, y: 285 },  // East
-    2: { x: 320, y: 62  },  // North
-    3: { x: 75,  y: 285 },  // West
+    0: { x: 240, y: 695 },  // South — you
+    1: { x: 450, y: 380 },  // East
+    2: { x: 240, y: 65  },  // North
+    3: { x: 30,  y: 380 },  // West
   };
   if (totalPlayers === 2) {
     // You (S), opponent (N)

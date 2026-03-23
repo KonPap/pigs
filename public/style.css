@@ -135,8 +135,8 @@ button {
 /* ── The Table ────────────────────────────────────────────────── */
 #table {
   position: relative;
-  width: 640px;
-  height: 580px;
+  width: 480px;
+  height: 760px;
   /* Green felt blob */
   background: radial-gradient(ellipse at 40% 35%, #2ecc71 0%, #27ae60 30%, #1e8449 65%, #145a32 100%);
   border-radius: 50% / 44%;
@@ -153,8 +153,8 @@ button {
 #sequences {
   position: absolute;
   /* Match the JS coordinate origin (cx=320, cy=290) used by draw circle & player zones */
-  left: 320px;
-  top: 290px;
+  left: 240px;
+  top: 380px;
   transform: translate(-50%, -50%);
   display: grid;
   grid-template-columns: repeat(2, 58px);

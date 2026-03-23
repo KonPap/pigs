@@ -46,13 +46,13 @@ function scaleTable() {
   const barH     = bar ? bar.offsetHeight : 110;
   const availW   = window.innerWidth;
   const availH   = window.innerHeight - barH;
-  const naturalW = 684;   // 640px + 2×22px border
-  const naturalH = 624;   // 580px + 2×22px border
+  const naturalW = 524;   // 480px + 2×22px border
+  const naturalH = 804;   // 760px + 2×22px border
   const scale    = Math.min(1, availW / naturalW, availH / naturalH);
 
-  table.style.transform       = `scale(${scale})`;
-  table.style.transformOrigin = 'center center';
-  wrap.style.height           = (naturalH * scale) + 'px';
+  table.style.zoom     = scale;
+  table.style.transform = '';
+  table.style.margin    = '';
 }
 
 setScaleTable(scaleTable);

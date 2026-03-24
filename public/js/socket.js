@@ -3,6 +3,7 @@
 import { state } from './state.js';
 import { renderGame } from './render.js';
 import { showWaitingRoom, showGameOver, showLobbyError } from './ui.js';
+import { addChatMessage } from './chat.js';
 
 // Imported lazily to avoid circular deps — set by main.js after init
 let _scaleTable = () => {};
@@ -37,7 +38,8 @@ socket.on('gameStarted', gs => {
   $('lobby').style.display = 'none';
   $('gameOverScreen').style.display = 'none';
   $('game').style.display = 'flex';
-  $('scoreTable').style.display = '';  // reset for next game
+  $('scoreTable').style.display = '';
+  $('btnChatToggle').style.display = 'block';
   _scaleTable();
   renderGame();
 });
@@ -47,6 +49,8 @@ socket.on('stateUpdate', gs => {
   state.gameState = gs;
   renderGame();
 });
+
+socket.on('chatMessage', ({ name, text }) => addChatMessage(name, text));
 
 socket.on('gameOver', ({ scores, loser, phase }) => {
   state.gameState = null;

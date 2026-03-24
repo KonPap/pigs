@@ -410,6 +410,15 @@ function registerHandlers(io, socket) {
     broadcastState(io, myRoomId);
   });
 
+  socket.on('chatMessage', ({ text }) => {
+    if (!myRoomId || !rooms[myRoomId]) return;
+    const player = rooms[myRoomId].players.find(p => p.id === socket.id);
+    if (!player || !text || typeof text !== 'string') return;
+    const safe = text.trim().slice(0, 100);
+    if (!safe) return;
+    io.to(myRoomId).emit('chatMessage', { name: player.name, text: safe });
+  });
+
   socket.on('concede', () => {
     if (!myRoomId) return;
     const room = rooms[myRoomId];

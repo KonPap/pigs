@@ -454,6 +454,102 @@ button {
   height: 72px;
 }
 
+/* ── Chat ────────────────────────────────────────────────────── */
+#btnChatToggle {
+  position: fixed;
+  bottom: 120px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,255,255,0.15);
+  font-size: 1.2rem;
+  padding: 0;
+  z-index: 60;
+  display: none; /* shown only during game */
+}
+#btnChatToggle:hover { background: rgba(255,255,255,0.1); }
+
+#chatPanel {
+  position: fixed;
+  bottom: 120px;
+  right: 16px;
+  width: 260px;
+  background: rgba(10,10,25,0.92);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 60;
+  backdrop-filter: blur(8px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+#chatPanel.chat-closed {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px) scale(0.97);
+  display: flex; /* keep in DOM, just hidden */
+}
+#chatMessages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+  max-height: 220px;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.chat-msg {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  word-break: break-word;
+}
+.chat-msg .chat-name { font-weight: 700; color: #f1c40f; margin-right: 4px; }
+.chat-msg.system { color: #888; font-style: italic; }
+#chatInputRow {
+  display: flex;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+#chatInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 0.85rem;
+  padding: 8px 10px;
+  outline: none;
+}
+#btnChatSend {
+  background: none;
+  border: none;
+  color: #f1c40f;
+  font-size: 1rem;
+  padding: 0 12px;
+  cursor: pointer;
+}
+#btnChatSend:hover { color: #fff; }
+
+.chat-toast {
+  position: fixed;
+  bottom: 122px;
+  right: 70px;
+  background: rgba(10,10,25,0.9);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  max-width: 200px;
+  word-break: break-word;
+  animation: toastIn 0.2s ease, toastOut 0.4s ease 2.6s forwards;
+  z-index: 65;
+  pointer-events: none;
+}
+@keyframes toastIn  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+@keyframes toastOut { to   { opacity:0; transform:translateY(-4px); } }
+
 /* ── Concede ─────────────────────────────────────────────────── */
 #btnConcede {
   background: transparent;

@@ -4,6 +4,7 @@ import socket, { setScaleTable } from './socket.js';
 import { setSocket } from './render.js';
 import { state } from './state.js';
 import { showLobbyError } from './ui.js';
+import { addChatMessage, setChatOpen } from './chat.js';
 
 setSocket(socket);
 
@@ -65,3 +66,28 @@ function scaleTable() {
 setScaleTable(scaleTable);
 scaleTable();
 window.addEventListener('resize', scaleTable);
+
+// ── Chat ──────────────────────────────────────────────────────
+let chatOpen = false;
+
+$('btnChatToggle').addEventListener('click', () => {
+  chatOpen = !chatOpen;
+  setChatOpen(chatOpen);
+  $('chatPanel').classList.toggle('chat-closed', !chatOpen);
+  $('btnChatToggle').textContent = chatOpen ? '✕' : '💬';
+  if (chatOpen) {
+    $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+    $('chatInput').focus();
+  }
+});
+
+function sendChat() {
+  const text = $('chatInput').value.trim();
+  if (!text) return;
+  socket.emit('chatMessage', { text });
+  $('chatInput').value = '';
+}
+
+$('btnChatSend').addEventListener('click', sendChat);
+$('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+
